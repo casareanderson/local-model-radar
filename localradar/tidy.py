@@ -30,22 +30,34 @@ from .adapters import hermes as hermes_adapt
 from .notify import log, notify
 
 
+def _normalize(name: str) -> str:
+    """Ollama writes :latest tags as 'x:latest' but configs say 'x'. Treat
+    'qwen3.5-64k' and 'qwen3.5-64k:latest' as the same model."""
+    return name[:-len(":latest")] if name.endswith(":latest") else name
+
+
 def referenced_models(adapter, cfg) -> set[str]:
-    """Every model name any Hermes profile (or this tool's config) points at."""
+    """Every model name any Hermes profile, this tool's config, or an explicit
+    keep-list points at. Names are normalized (no implicit :latest)."""
     names: set[str] = set()
     for t in adapter.targets():
         p = adapter.read(t)
         if not p:
             continue
-        names.add(p.model)
+        names.add(_normalize(p.model))
         for fb in p.fallbacks or []:
             if fb.get("model"):
-                names.add(fb["model"])
+                names.add(_normalize(fb["model"]))
     for rung in cfg["canary"].get("ladder", []):
         if rung.get("model"):
-            names.add(rung["model"])
+            names.add(_normalize(rung["model"]))
     if cfg["canary"].get("local", {}).get("model"):
-        names.add(cfg["canary"]["local"]["model"])
+        names.add(_normalize(cfg["canary"]["local"]["model"]))
+    # Models used by NON-Hermes consumers (Honcho, embeddings, qwen-code, etc.)
+    # live outside any Hermes profile. The keep-list is the safety net so a
+    # daily tidy never deletes a model another system depends on.
+    for m in cfg["tidy"].get("keep", []):
+        names.add(_normalize(m))
     return names
 
 
@@ -61,13 +73,13 @@ def classify(tags: list[dict], referenced: set[str]) -> dict:
     out = {}
     for m in tags:
         name = m.get("name", "")
-        if name in referenced:
+        if _normalize(name) in referenced:
             out[name] = "in-use"
             continue
         # A duplicate alias: more than one tag shares this digest, and at least
         # one of those tags is referenced -- this one is a removable alias.
         peers = by_digest.get(m.get("digest", ""), [])
-        if len(peers) > 1 and any(p in referenced for p in peers):
+        if len(peers) > 1 and any(_normalize(p) in referenced for p in peers):
             out[name] = "dup"
         else:
             out[name] = "orphan"

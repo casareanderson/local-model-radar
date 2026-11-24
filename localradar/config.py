@@ -50,6 +50,12 @@ DEFAULTS: dict = {
         "ladder": [],
         "local": {"model": ""},
     },
+    "tidy": {
+        # Models used by NON-Hermes systems (Honcho, embeddings, qwen-code,
+        # ComfyUI-side callers). These live outside any Hermes profile, so the
+        # tidy would otherwise flag them orphan. KEEP is a hard safety net.
+        "keep": [],
+    },
     "adapter": {"name": "hermes", "home": "~/.hermes"},
     "notify": {"discord_webhook_env": "LOCALRADAR_DISCORD_WEBHOOK"},
 }

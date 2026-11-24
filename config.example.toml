@@ -31,6 +31,12 @@ ladder = []                 # ordered smaller models, e.g. ["llama3.2:3b"]
 [canary.local]
 model = "llama3.2:3b"
 
+[tidy]
+# Models used by NON-Hermes systems (Honcho, embeddings, qwen-code). These are
+# NOT in any Hermes profile, so a tidy without this list would delete them and
+# break those systems. Add every external consumer's model here.
+keep = ["mistral-nemo", "nomic-embed-text", "qwen2.5-coder"]
+
 [adapter]
 name = "hermes"
 home = "~/.hermes"
